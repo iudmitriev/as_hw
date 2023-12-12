@@ -1,23 +1,20 @@
-mkdir tmp
-
 echo "Downloading dataset..."
-wget https://data.keithito.com/data/speech/LJSpeech-1.1.tar.bz2 -o /dev/null
+wget https://datashare.ed.ac.uk/bitstream/handle/10283/3336/LA.zip
+echo "Finished download, staring unpacking"
 mkdir -p data/datasets
-tar -xvf LJSpeech-1.1.tar.bz2 >> /dev/null
-mv LJSpeech-1.1 data/datasets/ljspeech
-rm LJSpeech-1.1.tar.bz2
+unzip LA.zip -d  data/datasets/ >> /dev/null
+mv data/datasets/LM data/datasets/asv_dataset 
+rm LA.zip
 
-echo "Downloading mels for dataset..."
-gdown https://drive.google.com/u/0/uc?id=1cJKJTmYd905a-9GFoo5gKjzhKjUVj83j
-tar -xvf mel.tar.gz -C data/datasets/ljspeech >> /dev/null
-rm mel.tar.gz
+echo "Finished unpacking, staring to reorder files"
+python3 scripts/process_dataset.py
 
-echo "Downloading alignments for dataset..."
-wget https://github.com/xcmyz/FastSpeech/raw/master/alignments.zip
-unzip alignments.zip -d data/datasets/ljspeech/alignments >> /dev/null
-rm alignments.zip
+rm -rf data/datasets/asv_dataset/ASVspoof2019_LA_asv_protocols
+rm -rf data/datasets/asv_dataset/ASVspoof2019_LA_asv_scores
+rm -rf data/datasets/asv_dataset/ASVspoof2019_LA_cm_protocols
+rm -rf data/datasets/asv_dataset/ASVspoof2019_LA_dev
+rm -rf data/datasets/asv_dataset/ASVspoof2019_LA_eval
+rm -rf data/datasets/asv_dataset/ASVspoof2019_LA_train
+rm -rf data/datasets/asv_dataset/README.LA.txt
 
-echo "Downloading waveglow pretrained model..."
-gdown https://drive.google.com/u/0/uc?id=1WsibBTsuRg_SF2Z6L6NFRTT-NjEy1oTx
-mkdir -p waveglow/pretrained_model/
-mv waveglow_256channels_ljs_v2.pt waveglow/pretrained_model/waveglow_256channels.pt
+echo "Finished downloading dataset!"
