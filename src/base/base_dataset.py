@@ -11,7 +11,6 @@ from torch.utils.data import Dataset
 
 from omegaconf.dictconfig import DictConfig
 
-from src.text import text_to_sequence
 from src.base.base_text_encoder import BaseTextEncoder
 
 logger = logging.getLogger(__name__)
@@ -34,6 +33,7 @@ class BaseDataset(Dataset):
         self.spec_augs = spec_augs
         self.log_spec = main_config["preprocessing"]["log_spec"]
 
+        self.segment_target = main_config["preprocessing"]["time_target"] * main_config["preprocessing"]["sr"]
         self._assert_index_is_valid(index)
         index = self._filter_records_from_dataset(index, max_audio_length, max_text_length, limit)
         # it's a good idea to sort index by audio length
@@ -43,19 +43,16 @@ class BaseDataset(Dataset):
 
     def __getitem__(self, ind):
         data_dict = self._index[ind]
-        mel_spec = torch.from_numpy(np.load(data_dict["mel_path"]))
-        duration = torch.from_numpy(np.load(data_dict["aligment_path"]))
-        pitch = torch.from_numpy(np.load(data_dict["pitch_path"]))
-        energy = torch.from_numpy(np.load(data_dict["energy_path"]))
-        text = data_dict["text"].strip()
-        character = np.array(text_to_sequence(text, ["english_cleaners"]))
+        audio_path = data_dict["path"]
+        audio = self.load_audio(audio_path)
 
+        while audio.shape[-1] < self.segment_target:
+            audio = torch.concat([audio, audio], dim=-1)
+        audio = audio[:, :self.segment_target]
         return {
-            "mel_target": mel_spec,
-            "duration": duration,
-            "text": torch.from_numpy(character),
-            "pitch": pitch,
-            "energy": energy
+            "audio": audio,
+            "is_bonafide": data_dict['is_bonafide'],
+            "length": data_dict['length'],
         }
 
     @staticmethod
@@ -141,7 +138,4 @@ class BaseDataset(Dataset):
             assert "path" in entry, (
                 "Each dataset item should include field 'path'" " - path to audio file."
             )
-            assert "text" in entry, (
-                "Each dataset item should include field 'text'"
-                " - text transcription of the audio."
-            )
+
