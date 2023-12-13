@@ -10,11 +10,11 @@ import numpy as np
 
 def collate_fn(dataset_items: List[dict]):
     result_batch = {}
-    values_to_pad = ['is_bonafide', 'audio']
-    for value in values_to_pad:
-        result_batch[value] = torch.cat([
-            item[value] for item in dataset_items
-        ])
-        if value == 'audio':
-            result_batch[value] = result_batch[value].unsqueeze(dim=1)
+    result_batch['is_bonafide'] = torch.cat([
+        torch.LongTensor([item['is_bonafide']]) for item in dataset_items
+    ])
+    result_batch['audio'] = torch.cat([
+        item['audio'] for item in dataset_items
+    ], dim=0)
+    result_batch['audio'] = result_batch['audio'].unsqueeze(dim=1)
     return result_batch
