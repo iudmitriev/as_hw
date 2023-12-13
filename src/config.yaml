@@ -1,80 +1,48 @@
-name: FastSpeech2
+name: RawNet2
 n_gpu: 1
 preprocessing:
-  sr: 22050
-  spectrogram:
-    _target_: torchaudio.transforms.MelSpectrogram
-    nfft: 1024
-    hop_size: 256
-  log_spec: false
+  sr: 16000
+  time_target: 4
 arch:
-  _target_: src.model.FastSpeech2Model
-  encoder:
-    _target_: src.model.fast_speech_2.coders.Encoder
-    n_layers: 4
-    hidden_dim: 256
-    num_heads: 2
-    filter_size: 1024
-    dropout: 0.1
-    vocab_size : 1000
-    max_seq_len : 3000
-    padding_idx: 0
-  decoder: 
-    _target_: src.model.fast_speech_2.coders.Decoder
-    n_layers: 4
-    hidden_dim: 256
-    num_heads: 2
-    filter_size: 1024
-    dropout: 0.1
-    vocab_size : 1000
-    padding_idx: 0
-  variance_adapter:
-    _target_: src.model.fast_speech_2.adaptors.VarianceAdaptor
-    input_channels: 256
-    output_channels: 256
-    kernel_size: 3
-    dropout: 0.1
-    n_bins: 256
-    encoder_hidden: 256
-    pitch_min: 50.0
-    pitch_max: 900.0
-    energy_min: 10.0
-    energy_max: 150.0
-  num_mels: 80
+  _target_: src.model.RawNet2
+  sinc_filter_length: 1024
+  sinc_channels: 128
+  min_low_hz: 0
+  min_band_hz: 0
+  abs_after_sinc: True
+  block1_channels: 20
+  block1_num_layers: 2
+  block2_channels: 128
+  block2_num_layers: 4
+  gru_hidden: 1024
+  gru_num_layers: 3
+  fc_hidden: 1024
 data:
   train:
     batch_size: 32
     num_workers: 5
     datasets:
       train:
-        _target_: src.datasets.LJspeechDataset
+        _target_: src.datasets.ASVDataset
         part: "train"
-        max_audio_length: 20.0
-        max_text_length: 200
   val:
     batch_size: 32
     num_workers: 5
     datasets:
       test:
-        _target_: src.datasets.LJspeechDataset
-        part: "test"
-        max_audio_length: 20.0
-        max_text_length: 200
-        limit: 512
+        _target_: src.datasets.ASVDataset
+        part: "eval"
 optimizer:
   _target_: torch.optim.AdamW
   lr: 3e-4
 loss:
-  _target_: src.loss.FastSpeech2Loss
+  _target_: src.loss.RawNet2Loss
+  bonafide_weight: 9.0 
+  spoof_weight: 1.0
 metrics:
 
 lr_scheduler:
-  _target_: torch.optim.lr_scheduler.OneCycleLR
-  steps_per_epoch: 1000
-  epochs: 250
-  anneal_strategy: "cos"
-  max_lr: 1e-3
-  pct_start: 0.2
+
 trainer:
   epochs: 50
   save_dir: "saved/"
@@ -83,6 +51,5 @@ trainer:
   monitor: "min train_loss"
   early_stop: 200
   visualize: "wandb"
-  wandb_project: "tts_project"
-  len_epoch: 5000
+  wandb_project: "as_project"
   grad_norm_clip: 10

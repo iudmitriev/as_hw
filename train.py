@@ -55,8 +55,12 @@ def main(config: DictConfig):
     # disabling scheduler
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = hydra.utils.instantiate(config["optimizer"], trainable_params)
-    lr_scheduler = hydra.utils.instantiate(config["lr_scheduler"], optimizer)
 
+    if "lr_scheduler" in config and config["lr_scheduler"]:
+        lr_scheduler = hydra.utils.instantiate(config["lr_scheduler"], optimizer)
+    else:
+        lr_scheduler = None
+    
     trainer = Trainer(
         model,
         loss_module,
