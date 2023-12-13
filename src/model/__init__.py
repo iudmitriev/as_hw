@@ -1,7 +1,5 @@
-from src.model.baseline_model import BaselineModel
-from src.model.fast_speech_2.FastSpeech2 import FastSpeech2Model
+from src.model.raw_net_2 import RawNet2
 
 __all__ = [
-    "BaselineModel",
-    "FastSpeech2Model"
+    "RawNet2"
 ]
