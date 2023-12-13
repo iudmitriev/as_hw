@@ -31,7 +31,6 @@ class BaseDataset(Dataset):
         self.config = main_config
         self.wave_augs = wave_augs
         self.spec_augs = spec_augs
-        self.log_spec = main_config["preprocessing"]["log_spec"]
 
         self.segment_target = main_config["preprocessing"]["time_target"] * main_config["preprocessing"]["sr"]
         self._assert_index_is_valid(index)
@@ -52,7 +51,7 @@ class BaseDataset(Dataset):
         return {
             "audio": audio,
             "is_bonafide": data_dict['is_bonafide'],
-            "length": data_dict['length'],
+            "length": data_dict['audio_len'],
         }
 
     @staticmethod

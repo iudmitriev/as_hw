@@ -14,10 +14,7 @@ from tqdm import tqdm
 from src.base import BaseTrainer
 from src.logger.utils import plot_spectrogram_to_buf
 from src.utils import inf_loop, MetricTracker
-from src.text import text_to_sequence
-
-from src.utils.waveglow import get_WaveGlow
-import waveglow as waveglow
+from src.metric import compute_eer
 
 import torchaudio
 
@@ -54,15 +51,13 @@ class Trainer(BaseTrainer):
         self.evaluation_dataloaders = {k: v for k, v in dataloaders.items() if k != "train"}
         self.lr_scheduler = lr_scheduler
         self.log_step = 50
-
+        
         self.train_metrics = MetricTracker(
-            "loss", "mel_loss", "pitch_loss", "energy_loss", "duration_loss", "grad norm", *[m.name for m in self.metrics], writer=self.writer
+            "loss", "grad norm", "EER", *[m.name for m in self.metrics], writer=self.writer
         )
         self.evaluation_metrics = MetricTracker(
-            "loss", *[m.name for m in self.metrics], writer=self.writer
+            "loss", "EER", *[m.name for m in self.metrics], writer=self.writer
         )
-
-        self.waveglow = get_WaveGlow().to(device)
 
     @staticmethod
     def move_batch_to_device(batch, device: torch.device):
@@ -70,13 +65,8 @@ class Trainer(BaseTrainer):
         Move all necessary tensors to the HPU
         """
         tensors = [
-            "src_sequence",
-            "src_positions",
-            "mel_target",
-            "duration_target", 
-            "pitch_target", 
-            "energy_target", 
-            "mel_positions"
+            "audio",
+            "is_bonafide"
         ]
         for tensor_for_gpu in tensors:
             batch[tensor_for_gpu] = batch[tensor_for_gpu].to(device)
@@ -98,6 +88,9 @@ class Trainer(BaseTrainer):
         self.model.train()
         self.train_metrics.reset()
         self.writer.add_scalar("epoch", epoch)
+
+        all_predictions = None
+        is_bonafide = None
         for batch_idx, batch in enumerate(
                 tqdm(self.train_dataloader, desc="train", total=self.len_epoch)
         ):
@@ -107,6 +100,20 @@ class Trainer(BaseTrainer):
                     is_train=True,
                     metrics=self.train_metrics,
                 )
+                if predictions is None:
+                    predictions = batch["prediction"].detach().cpu().numpy()
+                else:
+                    predictions = np.concatenate([
+                        predictions, 
+                        batch["prediction"].detach().cpu().numpy()
+                    ])
+                if is_bonafide is None:
+                    is_bonafide = batch["is_bonafide"].detach().cpu().numpy()
+                else:
+                    is_bonafide = np.concatenate([
+                        is_bonafide, 
+                        batch["is_bonafide"].detach().cpu().numpy()
+                    ])
             except RuntimeError as e:
                 if "out of memory" in str(e) and self.skip_oom:
                     self.logger.warning("OOM on batch. Skipping batch.")
@@ -125,10 +132,10 @@ class Trainer(BaseTrainer):
                         epoch, self._progress(batch_idx), batch["loss"].item()
                     )
                 )
-                self.writer.add_scalar(
-                    "learning rate", self.lr_scheduler.get_last_lr()[0]
-                )
-                self._log_audio(batch["mel_prediction"])
+                if self.lr_scheduler is not None:
+                    self.writer.add_scalar(
+                        "learning rate", self.lr_scheduler.get_last_lr()[0]
+                    )
                 self._log_scalars(self.train_metrics)
                 # we don't want to reset train metrics at the start of every epoch
                 # because we are interested in recent train metrics
@@ -137,6 +144,11 @@ class Trainer(BaseTrainer):
             if batch_idx >= self.len_epoch:
                 break
         log = last_train_metrics
+
+        bonafide_scores = predictions[is_bonafide == 1][:, 1]
+        other_scores = predictions[is_bonafide == 0][:, 1]
+        eer, _ = compute_eer(bonafide_scores, other_scores)
+        self.train_metrics.update("EER", eer)
 
         for part, dataloader in self.evaluation_dataloaders.items():
             val_log = self._evaluation_epoch(epoch, part, dataloader)
@@ -149,26 +161,22 @@ class Trainer(BaseTrainer):
         if is_train:
             self.optimizer.zero_grad()
         outputs = self.model(**batch)
-        if type(outputs) is dict:
-            batch.update(outputs)
-        else:
-            batch["logits"] = outputs
+        batch.update(outputs)
+
+        batch["loss"] = self.criterion(**batch)
 
         if is_train:
-            losses = self.criterion(**batch)
-            batch["loss"], batch["mel_loss"], batch["pitch_loss"], \
-                batch["energy_loss"], batch["duration_loss"] = losses
-            for loss_name in ["loss", "mel_loss", "pitch_loss", "energy_loss", "duration_loss"]:
-                metrics.update(loss_name, batch[loss_name].item())
             batch["loss"].backward()
             self._clip_grad_norm()
             self.optimizer.step()
             if self.lr_scheduler is not None:
                 self.lr_scheduler.step()
-
+        
+        metrics.update("loss", batch["loss"].item())
         for met in self.metrics:
             metrics.update(met.name, met(**batch))
         return batch
+
 
     def _evaluation_epoch(self, epoch, part, dataloader):
         """
@@ -179,6 +187,9 @@ class Trainer(BaseTrainer):
         """
         self.model.eval()
         self.evaluation_metrics.reset()
+
+        predictions = None
+        is_bonafide = None
         with torch.no_grad():
             for batch_idx, batch in tqdm(
                     enumerate(dataloader),
@@ -190,10 +201,30 @@ class Trainer(BaseTrainer):
                     is_train=False,
                     metrics=self.evaluation_metrics,
                 )
+
+                if predictions is None:
+                    predictions = batch["prediction"].detach().cpu().numpy()
+                else:
+                    predictions = np.concatenate([
+                        predictions, 
+                        batch["prediction"].detach().cpu().numpy()
+                    ])
+                if is_bonafide is None:
+                    is_bonafide = batch["is_bonafide"].detach().cpu().numpy()
+                else:
+                    is_bonafide = np.concatenate([
+                        is_bonafide, 
+                        batch["is_bonafide"].detach().cpu().numpy()
+                    ])
+            
+            bonafide_scores = predictions[targets == 1][:, 1]
+            other_scores = predictions[targets == 0][:, 1]
+            eer, _ = compute_eer(bonafide_scores, other_scores)
+            self.evaluation_metrics.update("EER", eer)
+
             self.writer.set_step(epoch * self.len_epoch, part)
             self._log_scalars(self.evaluation_metrics)
-            self._log_audio(batch["mel_prediction"])
-            self._log_test_phrases()
+
         return self.evaluation_metrics.result()
 
     def _progress(self, batch_idx):
@@ -225,42 +256,11 @@ class Trainer(BaseTrainer):
         )
         return total_norm.item()
 
-    def _log_audio(self, spectrogram_batch):
-        melspec = random.choice(spectrogram_batch.cpu())
-        mel = melspec.unsqueeze(0).contiguous().transpose(1, 2).to(self.device)
-        waveglow.inference.inference(
-            mel, self.waveglow,
-            f"tmp/waveglow.wav"
-        )
-        audio, sr = torchaudio.load(f"tmp/waveglow.wav")
-        self.writer.add_audio("audio", audio, sample_rate=sr)
+    def _log_audio(self, audio):
+        self.writer.add_audio("audio", audio, sample_rate=self.config["preprocessing"]["sr"])
 
     def _log_scalars(self, metric_tracker: MetricTracker):
         if self.writer is None:
             return
         for metric_name in metric_tracker.keys():
             self.writer.add_scalar(f"{metric_name}", metric_tracker.avg(metric_name))
-
-    def _log_test_phrases(self):
-        texts = [
-            "A defibrillator is a device that gives a high energy electric shock to the heart of someone who is in cardiac arrest",
-            "Massachusetts Institute of Technology may be best known for its math, science and engineering education",
-            "Wasserstein distance or Kantorovich Rubinstein metric is a distance function defined between probability distributions on a given metric space"
-        ]
-        for i, text in enumerate(texts):        
-            src_sequence = torch.from_numpy(np.array(text_to_sequence(text, ["english_cleaners"])))
-
-            src_positions = [np.arange(1, int(src_sequence.shape[0]) + 1)]
-            src_positions = torch.from_numpy(np.array(src_positions)).to(self.device)
-            src_sequence = src_sequence.unsqueeze(0).to(self.device)
-            
-            self.model.eval()
-            output = self.model(src_sequence, src_positions)
-            melspec = output["mel_prediction"].squeeze()
-            mel = melspec.unsqueeze(0).contiguous().transpose(1, 2).to(self.device)
-            waveglow.inference.inference(
-                mel, self.waveglow,
-                f"results/waveglow{i}.wav"
-            )
-            audio, sr = torchaudio.load(f"results/waveglow{i}.wav")
-            self.writer.add_audio(f"test_audio_{i}", audio, sample_rate=sr)
