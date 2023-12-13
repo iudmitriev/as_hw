@@ -100,11 +100,11 @@ class Trainer(BaseTrainer):
                     is_train=True,
                     metrics=self.train_metrics,
                 )
-                if predictions is None:
-                    predictions = batch["prediction"].detach().cpu().numpy()
+                if all_predictions is None:
+                    all_predictions = batch["prediction"].detach().cpu().numpy()
                 else:
-                    predictions = np.concatenate([
-                        predictions, 
+                    all_predictions = np.concatenate([
+                        all_predictions, 
                         batch["prediction"].detach().cpu().numpy()
                     ])
                 if is_bonafide is None:
@@ -145,8 +145,8 @@ class Trainer(BaseTrainer):
                 break
         log = last_train_metrics
 
-        bonafide_scores = predictions[is_bonafide == 1][:, 1]
-        other_scores = predictions[is_bonafide == 0][:, 1]
+        bonafide_scores = all_predictions[is_bonafide == 1][:, 1]
+        other_scores = all_predictions[is_bonafide == 0][:, 1]
         eer, _ = compute_eer(bonafide_scores, other_scores)
         self.train_metrics.update("EER", eer)
 
@@ -188,7 +188,7 @@ class Trainer(BaseTrainer):
         self.model.eval()
         self.evaluation_metrics.reset()
 
-        predictions = None
+        all_predictions = None
         is_bonafide = None
         with torch.no_grad():
             for batch_idx, batch in tqdm(
@@ -202,11 +202,11 @@ class Trainer(BaseTrainer):
                     metrics=self.evaluation_metrics,
                 )
 
-                if predictions is None:
-                    predictions = batch["prediction"].detach().cpu().numpy()
+                if all_predictions is None:
+                    all_predictions = batch["prediction"].detach().cpu().numpy()
                 else:
-                    predictions = np.concatenate([
-                        predictions, 
+                    all_predictions = np.concatenate([
+                        all_predictions, 
                         batch["prediction"].detach().cpu().numpy()
                     ])
                 if is_bonafide is None:
@@ -217,8 +217,8 @@ class Trainer(BaseTrainer):
                         batch["is_bonafide"].detach().cpu().numpy()
                     ])
             
-            bonafide_scores = predictions[targets == 1][:, 1]
-            other_scores = predictions[targets == 0][:, 1]
+            bonafide_scores = all_predictions[is_bonafide == 1][:, 1]
+            other_scores = all_predictions[is_bonafide == 0][:, 1]
             eer, _ = compute_eer(bonafide_scores, other_scores)
             self.evaluation_metrics.update("EER", eer)
 
