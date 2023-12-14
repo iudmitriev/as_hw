@@ -40,6 +40,11 @@ class Trainer(BaseTrainer):
         super().__init__(model, criterion, metrics, optimizer, config, device)
         self.skip_oom = skip_oom
         self.config = config
+
+        if "eval_period" in config["trainer"]:
+            self.eval_period = config["trainer"]["eval_period"]
+        else:
+            self.eval_period = None
         self.train_dataloader = dataloaders["train"]
         if len_epoch is None:
             # epoch-based training
@@ -62,7 +67,7 @@ class Trainer(BaseTrainer):
     @staticmethod
     def move_batch_to_device(batch, device: torch.device):
         """
-        Move all necessary tensors to the HPU
+        Move all necessary tensors to the GPU
         """
         tensors = [
             "audio",
@@ -150,9 +155,10 @@ class Trainer(BaseTrainer):
         eer, _ = compute_eer(bonafide_scores, other_scores)
         self.train_metrics.update("EER", eer)
 
-        for part, dataloader in self.evaluation_dataloaders.items():
-            val_log = self._evaluation_epoch(epoch, part, dataloader)
-            log.update(**{f"{part}_{name}": value for name, value in val_log.items()})
+        if self.eval_period is None or ((epoch + 1) % self.eval_period == 0):
+            for part, dataloader in self.evaluation_dataloaders.items():
+                val_log = self._evaluation_epoch(epoch, part, dataloader)
+                log.update(**{f"{part}_{name}": value for name, value in val_log.items()})
 
         return log
 

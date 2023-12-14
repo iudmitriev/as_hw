@@ -31,15 +31,8 @@ class RawNet2(nn.Module):
 
         self.abs_after_sinc = abs_after_sinc
 
-        # This batchNorm and ReLU duplicates one in the block
-        # But it is like that in the article
-        self.sinc_head = nn.Sequential(
-            nn.MaxPool1d(3),
-            nn.BatchNorm1d(
-                num_features=sinc_channels
-            ),
-            nn.LeakyReLU()
-        )
+        self.sinc_head = nn.MaxPool1d(kernel_size=3)
+        
 
         block1_layers = [
             ResBlock(
