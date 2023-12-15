@@ -3,7 +3,7 @@ wget https://datashare.ed.ac.uk/bitstream/handle/10283/3336/LA.zip
 echo "Finished download, staring unpacking"
 mkdir -p data/datasets
 unzip LA.zip -d  data/datasets/ >> /dev/null
-mv data/datasets/LM data/datasets/asv_dataset 
+mv data/datasets/LA data/datasets/asv_dataset 
 rm LA.zip
 
 echo "Finished unpacking, staring to reorder files"
