@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import torch
+import torchaudio
 import numpy as np
 from tqdm import tqdm
 import hydra
@@ -14,33 +15,23 @@ from src.trainer import Trainer
 from src.utils import ROOT_PATH
 from src.utils.object_loading import get_dataloaders
 
-from src.text import text_to_sequence
-
-from src.utils.waveglow import get_WaveGlow
-import waveglow as waveglow
-
 DEFAULT_CHECKPOINT_PATH = ROOT_PATH / "checkpoints" / "checkpoint.pth"
-DEFAULT_INPUT_PATH = ROOT_PATH / "test_texts.json"
-DEFAULT_RESULTS_PATH = ROOT_PATH / "results"
+DEFAULT_INPUT_PATH = ROOT_PATH / "test_audio"
+DEFAULT_RESULTS_PATH = ROOT_PATH / "results.json"
 
 
 @hydra.main(version_base=None, config_path="src", config_name="config")
 def main(config):
 
-    checkpoint_path, in_file, out_dir = parse_args()
+    checkpoint_path, in_dir, out_file = parse_args()
 
     logger = logging.getLogger("test")
 
     # define cpu or gpu if possible
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # setup data_loader instances
-    dataloaders = get_dataloaders(config)
-
     # build model architecture
     model = hydra.utils.instantiate(config["arch"])
-    logger.info(model)
-
 
     logger.info(f"Loading checkpoint: {checkpoint_path} ...")
     checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -49,48 +40,36 @@ def main(config):
         model = torch.nn.DataParallel(model)
     model.load_state_dict(state_dict)
 
-    waveglow_object = get_WaveGlow().to(device)
-
     # prepare model for testing
     model = model.to(device)
     model.eval()
     
-    with open(in_file, 'r') as input_file:
-        input_texts = json.load(input_file)
+    in_dir = Path(in_dir)
+    test_audios = {}
+    for audio_path in in_dir.iterdir():
+        audio_tensor, sr = torchaudio.load(audio_path)
+        #assert sr == config["preprocessing"]["sr"]
+        test_audios[audio_path] = audio_tensor
     
-    out_dir = Path(out_dir).absolute().resolve()
-    with torch.no_grad():
-        for i, text in enumerate(input_texts):
-            if isinstance(text, str):
-                text = {'text': text}
+    results = []
+    for audio_path, audio in test_audios.items():
+        audio = audio.to(device)
+        audio = audio.unsqueeze(dim=0)
+        predicted_results = model(audio)["prediction"].cpu()
+        predicted_results = predicted_results[0]
+        print(f'For audio {audio_path.name}')
+        print(f'Predicted fake probability = {predicted_results[0].item()}')
+        print(f'Predicted bonafide probability = {predicted_results[1].item()}')
 
-            duration_control = text.get('duration_control', 1.0)
-            pitch_control = text.get('pitch_control', 1.0)
-            energy_control = text.get('energy_control', 1.0)
-            text = text['text']
+        audio_results = {}
+        audio_results['audio_path'] = str(audio_path.name)
+        audio_results['is bonafide'] = predicted_results[1].item() > predicted_results[0].item()
+        audio_results['bonafide probability'] = predicted_results[1].item()
+        results.append(audio_results)
+    
+    with Path(out_file).open("w") as f:
+        json.dump(results, f, indent=2)
 
-            src_sequence = torch.from_numpy(np.array(text_to_sequence(text, ["english_cleaners"])))
-
-            src_positions = [np.arange(1, int(src_sequence.shape[0]) + 1)]
-            src_positions = torch.from_numpy(np.array(src_positions)).to(device)
-            src_sequence = src_sequence.unsqueeze(0).to(device)
-            
-            output = model(
-                src_sequence=src_sequence, 
-                src_positions=src_positions,
-                duration_control=duration_control,
-                pitch_control=pitch_control,
-                energy_control=energy_control
-            )
-            melspec = output["mel_prediction"].squeeze()
-            mel = melspec.unsqueeze(0).contiguous().transpose(1, 2).to(device)
-
-            file_name = f'test_{text[:10]}_{duration_control:.1f}_{pitch_control:.1f}_{energy_control:.1f}.wav'
-            out_file = out_dir / file_name
-            waveglow.inference.inference(
-                mel, waveglow_object,
-                str(out_file)
-            )
 
 
 def parse_args():
@@ -107,17 +86,17 @@ def parse_args():
         "--output",
         default=str(DEFAULT_RESULTS_PATH),
         type=str,
-        help="Folder to write results (default: results/)",
+        help="File to write results (default: results.json)",
     )
     args.add_argument(
         "-t",
-        "--texts",
+        "--test",
         default=str(DEFAULT_INPUT_PATH),
         type=str,
-        help="Path to json file, containing text pharases to turn into speech (default: test_texts.json)",
+        help="Path to directory, containing audio to test (default: test_audio/)",
     )
     args = args.parse_args()
-    return args.resume, args.texts, args.output
+    return args.resume, args.test, args.output
 
 
 if __name__ == "__main__":
