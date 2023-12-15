@@ -1,0 +1,47 @@
+[
+  {
+    "audio_path": "audio_1.flac",
+    "is bonafide": false,
+    "bonafide probability": 8.291071026178543e-06
+  },
+  {
+    "audio_path": "audio_2.flac",
+    "is bonafide": false,
+    "bonafide probability": 0.004557379055768251
+  },
+  {
+    "audio_path": "audio_3.flac",
+    "is bonafide": false,
+    "bonafide probability": 5.6041953939711675e-06
+  },
+  {
+    "audio_path": "nv_audio_1.wav",
+    "is bonafide": false,
+    "bonafide probability": 3.6740032101079123e-06
+  },
+  {
+    "audio_path": "nv_audio_2.wav",
+    "is bonafide": false,
+    "bonafide probability": 3.0960188723838655e-06
+  },
+  {
+    "audio_path": "nv_audio_3.wav",
+    "is bonafide": false,
+    "bonafide probability": 8.825423719827086e-06
+  },
+  {
+    "audio_path": "tts_audio_1.wav",
+    "is bonafide": false,
+    "bonafide probability": 3.434825430304045e-06
+  },
+  {
+    "audio_path": "tts_audio_2.wav",
+    "is bonafide": false,
+    "bonafide probability": 1.011844324239064e-05
+  },
+  {
+    "audio_path": "tts_audio_3.wav",
+    "is bonafide": false,
+    "bonafide probability": 3.764724851862411e-06
+  }
+]
