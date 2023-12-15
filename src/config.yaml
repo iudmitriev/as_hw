@@ -6,10 +6,10 @@ preprocessing:
 arch:
   _target_: src.model.RawNet2
   sinc_filter_length: 1024
-  sinc_channels: 128
+  sinc_channels: 20
   min_low_hz: 0
   min_band_hz: 0
-  abs_after_sinc: True
+  abs_after_sinc: true
   block1_channels: 20
   block1_num_layers: 2
   block2_channels: 128
@@ -28,13 +28,14 @@ data:
   val:
     batch_size: 32
     num_workers: 5
-    datasets:
+    datasets: 
       test:
         _target_: src.datasets.ASVDataset
         part: "eval"
 optimizer:
-  _target_: torch.optim.AdamW
-  lr: 3e-4
+  _target_: torch.optim.Adam
+  lr: 1e-4
+  weight_decay: 1e-4
 loss:
   _target_: src.loss.RawNet2Loss
   bonafide_weight: 9.0 
