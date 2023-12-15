@@ -3,7 +3,7 @@
 ## Installation guide
 
 ### Creating virtual enviroment
-This project is using [poetry](https://python-poetry.org/) to manage dependencies. To use you need to [install](https://python-poetry.org/docs/) it.
+This project is using [poetry](https://python-poetry.org/) to manage dependencies. To use this project you need to [install](https://python-poetry.org/docs/) it.  
 After installing poetry, run
 ```shell 
 poetry install
@@ -26,7 +26,7 @@ To download dataset, you should run
 chmod +x scripts/download_dataset.sh
 poetry run sh scripts/download_dataset.sh
 ```
-Since this script is reordering and renaming files, installing dataset with other methods may not work.
+Since this script is reordering and renaming files, installing dataset with other methods may not work.  
 To download model chekpoint, run
 ```shell 
 chmod +x scripts/download_best_model.sh
