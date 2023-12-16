@@ -7,6 +7,7 @@ arch:
   _target_: src.model.RawNet2
   sinc_filter_length: 1024
   sinc_channels: 20
+  inverse_mel: false
   min_low_hz: 0
   min_band_hz: 0
   abs_after_sinc: true
