@@ -2,46 +2,51 @@
   {
     "audio_path": "audio_1.flac",
     "is bonafide": false,
-    "bonafide probability": 8.291071026178543e-06
+    "bonafide probability": 5.257541124592535e-05
   },
   {
     "audio_path": "audio_2.flac",
     "is bonafide": false,
-    "bonafide probability": 0.004557379055768251
+    "bonafide probability": 0.02841370925307274
   },
   {
     "audio_path": "audio_3.flac",
     "is bonafide": false,
-    "bonafide probability": 5.6041953939711675e-06
+    "bonafide probability": 1.413103655067971e-05
+  },
+  {
+    "audio_path": "internet_audio.wav",
+    "is bonafide": false,
+    "bonafide probability": 0.0002771237923298031
   },
   {
     "audio_path": "nv_audio_1.wav",
     "is bonafide": false,
-    "bonafide probability": 3.6740032101079123e-06
+    "bonafide probability": 2.356550567128579e-06
   },
   {
     "audio_path": "nv_audio_2.wav",
     "is bonafide": false,
-    "bonafide probability": 3.0960188723838655e-06
+    "bonafide probability": 3.4400047752569662e-06
   },
   {
     "audio_path": "nv_audio_3.wav",
     "is bonafide": false,
-    "bonafide probability": 8.825423719827086e-06
+    "bonafide probability": 7.94012794358423e-06
   },
   {
     "audio_path": "tts_audio_1.wav",
     "is bonafide": false,
-    "bonafide probability": 3.434825430304045e-06
+    "bonafide probability": 0.00011299212201265618
   },
   {
     "audio_path": "tts_audio_2.wav",
     "is bonafide": false,
-    "bonafide probability": 1.011844324239064e-05
+    "bonafide probability": 0.0005872580222785473
   },
   {
     "audio_path": "tts_audio_3.wav",
     "is bonafide": false,
-    "bonafide probability": 3.764724851862411e-06
+    "bonafide probability": 0.0001039636044879444
   }
 ]
