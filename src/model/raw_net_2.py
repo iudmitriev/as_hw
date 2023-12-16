@@ -9,6 +9,7 @@ class RawNet2(nn.Module):
         self,
         sinc_filter_length = 1024,
         sinc_channels = 128,
+        inverse_mel=False,
         min_low_hz = 0,
         min_band_hz = 0,
         abs_after_sinc = True,
@@ -27,6 +28,7 @@ class RawNet2(nn.Module):
             kernel_size = sinc_filter_length,
             min_low_hz = min_low_hz,
             min_band_hz = min_band_hz,
+            inverse_mel=inverse_mel
         )
 
         self.abs_after_sinc = abs_after_sinc
